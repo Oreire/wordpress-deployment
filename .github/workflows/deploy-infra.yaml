@@ -50,7 +50,7 @@ jobs:
           echo "public_ip=${PUBLIC_IP}" >> $GITHUB_OUTPUT
           echo "Terraform output (clean): ${PUBLIC_IP}"
 
-     
+   
   ansible:
     name: Configure WordPress via Ansible
     runs-on: ubuntu-latest
@@ -84,3 +84,4 @@ jobs:
       - name: Run Ansible Playbook
         run: ansible-playbook -i inventory.ini wordpress.yaml
 
+# End of file
