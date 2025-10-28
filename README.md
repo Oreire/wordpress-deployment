@@ -125,7 +125,7 @@ az login
 ✅ Ansible uses CLI session for authentication  
 ✅ No hardcoded secrets or credentials
 
----
+
 
 #### 4. **Ansible Playbook Execution**
 ```bash
