@@ -168,8 +168,3 @@ validated: true
 attribution: required
 ```
 
----
-
-Would you like me to scaffold the next simulation entry for **resource imports**, **NGINX deployment**, or **signed YAML manifest generation** for recruiter-facing presentation? I can also bundle this with your spiritual reflections and educator resource pack for sector-facing impact.
-
-          
