@@ -8,6 +8,8 @@ resource "azurerm_virtual_network" "vnet" {
   address_space       = ["10.0.0.0/16"]
   location            = var.location
   resource_group_name = var.resource_group_name
+
+  depends_on = [azurerm_resource_group.rg]
 }
 
 resource "azurerm_subnet" "subnet" {
@@ -15,12 +17,16 @@ resource "azurerm_subnet" "subnet" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.1.0/24"]
+
+  depends_on = [azurerm_virtual_network.vnet]
 }
 
 resource "azurerm_network_security_group" "nsg" {
   name                = "wordpress-nsg"
   location            = var.location
   resource_group_name = var.resource_group_name
+
+  depends_on = [azurerm_resource_group.rg]
 
   security_rule {
     name                       = "Allow-SSH"
@@ -65,12 +71,16 @@ resource "azurerm_public_ip" "vm_ip" {
   resource_group_name = var.resource_group_name
   allocation_method   = "Static"
   sku                 = "Standard"
+
+  depends_on = [azurerm_resource_group.rg]
 }
 
 resource "azurerm_network_interface" "nic" {
   name                = "wordpress-nic"
   location            = var.location
   resource_group_name = var.resource_group_name
+
+  depends_on = [azurerm_subnet.subnet, azurerm_public_ip.vm_ip]
 
   ip_configuration {
     name                          = "internal"
@@ -83,6 +93,8 @@ resource "azurerm_network_interface" "nic" {
 resource "azurerm_network_interface_security_group_association" "nsg_assoc" {
   network_interface_id      = azurerm_network_interface.nic.id
   network_security_group_id = azurerm_network_security_group.nsg.id
+
+  depends_on = [azurerm_network_interface.nic, azurerm_network_security_group.nsg]
 }
 
 resource "azurerm_linux_virtual_machine" "vm" {
@@ -92,6 +104,8 @@ resource "azurerm_linux_virtual_machine" "vm" {
   size                  = var.vm_size
   admin_username        = var.admin_username
   network_interface_ids = [azurerm_network_interface.nic.id]
+
+  depends_on = [azurerm_network_interface.nic]
 
   admin_ssh_key {
     username   = var.admin_username
@@ -109,6 +123,5 @@ resource "azurerm_linux_virtual_machine" "vm" {
     sku       = "22_04-lts"
     version   = "latest"
   }
-
 }
 
