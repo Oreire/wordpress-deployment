@@ -20,7 +20,7 @@ variable "vm_size" {
 
 variable "ssh_public_key_path" {
   description = "Path to SSH public key"
-  default     = "id_rsa.pub" 
+  default     = "id_rsa.pub"
 }
 
 
