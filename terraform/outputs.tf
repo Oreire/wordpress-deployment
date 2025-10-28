@@ -5,3 +5,5 @@ output "vm_public_ip" {
 output "admin_username" {
   value = var.admin_username
 }
+
+

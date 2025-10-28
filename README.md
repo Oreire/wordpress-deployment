@@ -1,2 +1,54 @@
 # wordpress-deployment
 Automation of the Deployment of WordPress Using Terraform, Ansible and GitHub Actions
+
+name: Deploy Infrastructure to Azure
+
+on:
+    push:
+        branches: [ main ]
+        paths:
+            - 'terraform/**'
+    pull_request:
+        branches: [ main ]
+        paths:
+            - 'terraform/**'
+    workflow_dispatch:
+
+env:
+    ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+    ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+    ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+    terraform:
+        name: 'Terraform'
+        runs-on: ubuntu-latest
+
+        defaults:
+            run:
+                working-directory: ./terraform
+
+        steps:
+        - uses: actions/checkout@v3
+
+        - name: Setup Terraform
+          uses: hashicorp/setup-terraform@v2
+          with:
+            terraform_version: '1.5.0'
+
+        - name: Terraform Format
+          run: terraform fmt 
+
+        - name: Terraform Init
+          run: terraform init
+
+        - name: Terraform Plan
+          if: github.event_name == 'pull_request'
+          run: terraform plan -out=tfplan
+
+        - name: Terraform Apply
+          if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+          run: terraform apply -auto-approve
+
+          
