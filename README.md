@@ -123,45 +123,89 @@ az login
 ```
 AAAAAA
 
+name: Deploy Infrastructure to Azure
 
-#### 4. **Ansible Playbook Execution**
-```bash
-ansible-playbook -i azure_rm.yml wordpress.yml
-```
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'terraform/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
 
-✅ Configures VM with NGINX, firewall rules, and monitoring agents  
-✅ Idempotent and reproducible provisioning
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_ACCESS_KEY: ${{ secrets.ARM_ACCESS_KEY }}
 
----
-
-### 🔐 Compliance Mapping
-
-| Control Area                     | Alignment                                                                 |
-|----------------------------------|---------------------------------------------------------------------------|
-| **UK Cyber Essentials**          | Secure provisioning, CLI-based authentication, NSG enforcement            |
-| **ISO 27001: Configuration Mgmt**| Role-based access, dynamic inventory, traceable automation                |
-| **DevSecOps Best Practices**     | IaC + CM integration, auditability, modular provisioning                  |
-
----
-
-### 📦 Manifest Summary (Signed YAML)
-
-```yaml
-infrastructure:
+jobs:
   terraform:
-    backend: azurerm
-    vm: wordpress-vm
-    resource_group: wordpress-rg
-  ansible:
-    inventory_plugin: azure_rm
-    playbook: wordpress.yml
-    authentication: Azure CLI
-    compliance:
-      - UK Cyber Essentials
-      - ISO 27001
-      - DevSecOps Integration
-author: Ayomide Olanrewaju Ajayi
-validated: true
-attribution: required
-```
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    outputs:
+      inventory-path: ${{ steps.generate_inventory.outputs.inventory-path }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: '1.5.0'
+
+    - name: Terraform Format
+      run: terraform fmt
+
+    - name: Terraform Init (with backend auth)
+      run: terraform init -reconfigure
+      env:
+        ARM_ACCESS_KEY: ${{ secrets.ARM_ACCESS_KEY }}
+
+    - name: Terraform Plan
+      if: github.event_name == 'pull_request'
+      run: terraform plan -out=tfplan
+
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: terraform apply -auto-approve
+
+    - name: Generate Ansible Inventory
+      id: generate_inventory
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        IP=$(terraform output -raw vm_public_ip)
+        echo "[wordpress]" > ../ansible/inventory.ini
+        echo "$IP ansible_user=azureuser ansible_ssh_private_key_file=~/.ssh/id_rsa" >> ../ansible/inventory.ini
+        echo "inventory-path=../ansible/inventory.ini" >> $GITHUB_OUTPUT
+
+#   ansible:
+#     name: 'Run Ansible Playbook'
+#     runs-on: ubuntu-latest
+#     needs: terraform
+#
+#     defaults:
+#       run:
+#         working-directory: ./ansible
+#
+#     steps:
+#     - uses: actions/checkout@v3
+#
+#     - name: Install Ansible
+#       run: |
+#         sudo apt update
+#         sudo apt install -y ansible
+#
+#     - name: Run Ansible Playbook
+#       run: |
+#         ansible-playbook -i inventory.ini word-deploy.yaml
 

@@ -1,56 +1,36 @@
-# - name: Configure NGINX and PHP-FPM
-#   hosts: wordpress
-#   become: yes
-#   tasks:
-#     - name: Install NGINX
-#       apt:
-#         name: nginx
-#         state: present
-#         update_cache: yes
+- hosts: wordpress
+  become: true
+  tasks:
+    - name: Install NGINX, MariaDB, PHP-FPM
+      apt:
+        name:
+          - nginx
+          - mariadb-server
+          - php
+          - php-fpm
+          - php-mysql
+        state: present
+        update_cache: yes
 
-#     - name: Install PHP and extensions
-#       apt:
-#         name:
-#           - php-fpm
-#           - php-mysql
-#           - php-curl
-#           - php-gd
-#           - php-mbstring
-#           - php-xml
-#           - php-zip
-#         state: present
+    - name: Download WordPress
+      get_url:
+        url: https://wordpress.org/latest.tar.gz
+        dest: /tmp/latest.tar.gz
 
-#     - name: Configure PHP
-#       lineinfile:
-#         path: /etc/php/8.1/fpm/php.ini
-#         regexp: '^;?cgi.fix_pathinfo='
-#         line: 'cgi.fix_pathinfo=0'
+    - name: Extract WordPress
+      unarchive:
+        src: /tmp/latest.tar.gz
+        dest: /var/www/
+        remote_src: yes
 
-#     - name: Restart PHP-FPM
-#       service:
-#         name: php8.1-fpm
-#         state: restarted
-#     - name: Configure NGINX for WordPress 
-#       copy:
-#         dest: /etc/nginx/sites-available/wordpress
-#         content: |
-#           server {
-#               listen 80;
-#               server_name _;
-#               root /var/www/html;
+    - name: Configure NGINX
+      template:
+        src: wordpress-nginx.conf.j2
+        dest: /etc/nginx/sites-available/wordpress
+      notify: Reload NGINX
 
-#               index index.php index.html index.htm;
-
-#               location / {
-#                   try_files $uri $uri/ /index.php?$args;
-#               }
-
-#               location ~ \.php$ {
-#                   include snippets/fastcgi-php.conf;
-#                   fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
-#               }
-
-#               location ~ /\.ht {
-#                   deny all;
-#               }
-#           }
+  handlers:
+    - name: Reload NGINX
+      service:
+        name: nginx
+        state: restarted

@@ -1,14 +1,9 @@
-name: Deploy Infrastructure to Azure
+name: Deploy WordPress Infrastructure
 
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'terraform/**'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'terraform/**'
+    paths: [ 'terraform/**', 'ansible/**' ]
   workflow_dispatch:
 
 env:
@@ -20,67 +15,70 @@ env:
 
 jobs:
   terraform:
-    name: 'Terraform'
+    name: Terraform Infrastructure Deployment
     runs-on: ubuntu-latest
-
     defaults:
       run:
         working-directory: ./terraform
 
     outputs:
-      inventory-path: ${{ steps.generate_inventory.outputs.inventory-path }}
+      public_ip: ${{ steps.tf_output.outputs.public_ip }}
 
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_version: '1.5.0'
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: "1.5.0"
 
-    - name: Terraform Format
-      run: terraform fmt
+      - name: Terraform Init
+        run: terraform init -reconfigure
+        env:
+          ARM_ACCESS_KEY: ${{ secrets.ARM_ACCESS_KEY }}
 
-    - name: Terraform Init (with backend auth)
-      run: terraform init -reconfigure
-      env:
-        ARM_ACCESS_KEY: ${{ secrets.ARM_ACCESS_KEY }}
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
 
-    - name: Terraform Plan
-      if: github.event_name == 'pull_request'
-      run: terraform plan -out=tfplan
-
-    - name: Terraform Apply
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: terraform apply -auto-approve
-
-    - name: Generate Ansible Inventory
-      id: generate_inventory
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: |
-        IP=$(terraform output -raw vm_public_ip)
-        echo "[wordpress]" > ../ansible/inventory.ini
-        echo "$IP ansible_user=azureuser ansible_ssh_private_key_file=~/.ssh/id_rsa" >> ../ansible/inventory.ini
-        echo "inventory-path=../ansible/inventory.ini" >> $GITHUB_OUTPUT
+      - name: Extract Terraform Output (Public IP)
+        id: tf_output
+        run: |
+          echo "Fetching Terraform output..."
+          PUBLIC_IP=$(terraform output -raw vm_public_ip)
+          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+          echo "Terraform output: $PUBLIC_IP"
 
 #   ansible:
-#     name: 'Run Ansible Playbook'
+#     name: Configure WordPress via Ansible
 #     runs-on: ubuntu-latest
 #     needs: terraform
-#
 #     defaults:
 #       run:
 #         working-directory: ./ansible
-#
+
 #     steps:
-#     - uses: actions/checkout@v3
-#
-#     - name: Install Ansible
-#       run: |
-#         sudo apt update
-#         sudo apt install -y ansible
-#
-#     - name: Run Ansible Playbook
-#       run: |
-#         ansible-playbook -i inventory.ini word-deploy.yaml
+#       - name: Checkout Code
+#         uses: actions/checkout@v3
+
+#       - name: Install Ansible & Dependencies
+#         run: |
+#           sudo apt update
+#           sudo apt install -y ansible sshpass
+
+#       - name: Generate Dynamic Inventory
+#         run: |
+#           echo "[wordpress]" > inventory.ini
+#           echo "${{ needs.terraform.outputs.public_ip }} ansible_user=azureuser ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_python_interpreter=/usr/bin/python3" >> inventory.ini
+#           echo "Generated inventory.ini:"
+#           cat inventory.ini
+
+#       - name: Setup SSH Key
+#         run: |
+#           mkdir -p ~/.ssh
+#           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+#           chmod 600 ~/.ssh/id_rsa
+
+#       - name: Run Ansible Playbook
+#         run: ansible-playbook -i inventory.ini wordpress.yaml
 
