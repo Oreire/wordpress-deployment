@@ -7,19 +7,18 @@ data "azurerm_resource_group" "rg" {
   name = var.resource_group_name
 }
 
-
 resource "azurerm_virtual_network" "vnet" {
   name                = "wordpress-vnet"
   address_space       = ["10.0.0.0/16"]
-  location            = var.location
-  resource_group_name = var.resource_group_name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
 
-  depends_on = [azurerm_resource_group.rg]
+  depends_on = [data.azurerm_resource_group.rg]
 }
 
 resource "azurerm_subnet" "subnet" {
   name                 = "wordpress-subnet"
-  resource_group_name  = var.resource_group_name
+  resource_group_name  = data.azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.1.0/24"]
 
@@ -28,10 +27,10 @@ resource "azurerm_subnet" "subnet" {
 
 resource "azurerm_network_security_group" "nsg" {
   name                = "wordpress-nsg"
-  location            = var.location
-  resource_group_name = var.resource_group_name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
 
-  depends_on = [azurerm_resource_group.rg]
+  depends_on = [data.azurerm_resource_group.rg]
 
   security_rule {
     name                       = "Allow-SSH"
@@ -72,18 +71,18 @@ resource "azurerm_network_security_group" "nsg" {
 
 resource "azurerm_public_ip" "vm_ip" {
   name                = "wordpress-public-ip"
-  location            = var.location
-  resource_group_name = var.resource_group_name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
 
-  depends_on = [azurerm_resource_group.rg]
+  depends_on = [data.azurerm_resource_group.rg]
 }
 
 resource "azurerm_network_interface" "nic" {
   name                = "wordpress-nic"
-  location            = var.location
-  resource_group_name = var.resource_group_name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
 
   depends_on = [azurerm_subnet.subnet, azurerm_public_ip.vm_ip]
 
@@ -104,8 +103,8 @@ resource "azurerm_network_interface_security_group_association" "nsg_assoc" {
 
 resource "azurerm_linux_virtual_machine" "vm" {
   name                  = "wordpress-vm"
-  resource_group_name   = var.resource_group_name
-  location              = var.location
+  resource_group_name   = data.azurerm_resource_group.rg.name
+  location              = data.azurerm_resource_group.rg.location
   size                  = var.vm_size
   admin_username        = var.admin_username
   network_interface_ids = [azurerm_network_interface.nic.id]
@@ -129,5 +128,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
     version   = "latest"
   }
 }
+
+
 
 # update import of RG
