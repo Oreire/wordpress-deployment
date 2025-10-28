@@ -121,7 +121,7 @@ keyed_groups:
 ```powershell
 az login
 ```
-
+AAAAAA
 
 
 #### 4. **Ansible Playbook Execution**
